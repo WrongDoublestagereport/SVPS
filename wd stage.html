@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSP Route Ops Reporter v3 (Table Layout)</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --warning-color: #ffc107;
+            --border-color: #e9ecef;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 600px; /* Slightly wider for the table */
+            height: fit-content;
+        }
+
+        h2 { text-align: center; margin-bottom: 20px; margin-top: 0; color: #2c3e50; }
+        h3 { margin-bottom: 10px; color: #2c3e50; }
+
+        /* --- Table Form Styles --- */
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .report-table th, .report-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        
+        .report-table th {
+            background-color: #f8f9fa;
+            width: 30%;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .multi-input-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .arrow-separator { color: #999; font-weight: bold;}
+
+
+        /* --- Standard Input Styles --- */
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        /* Preview Area Styles */
+        .preview-header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        textarea.preview-box {
+            resize: vertical;
+            height: 100px;
+            background-color: #fff; /* White background indicating editable */
+            color: #333;
+            font-family: monospace; /* Helpful for markdown editing */
+            border: 1px solid #bbb;
+        }
+        textarea.preview-box.manual-mode {
+            border-color: var(--warning-color);
+            background-color: #fffdf5;
+        }
+
+        /* --- Button Styles --- */
+        .btn {
+            width: 100%; padding: 12px; border: none; border-radius: 4px;
+            font-size: 16px; font-weight: bold; cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
+        }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: #0056b3; }
+        .btn-secondary { background-color: #6c757d; color: white; margin-top: 10px;}
+        .btn-secondary:hover:not(:disabled) { background-color: #545b62; }
+
+        /* Smaller buttons */
+        .btn-sm { width: auto; padding: 4px 8px; font-size: 12px; }
+        .btn-reset { background-color: var(--warning-color); color: #212529; }
+        .btn-action { width: auto; padding: 6px 12px; font-size: 13px; margin-left: 5px;}
+        .btn-danger { background-color: var(--error-color); color: white; }
+        .btn-edit { background-color: var(--warning-color); color: #212529; }
+
+        /* --- Utility & Settings Styles --- */
+        .hidden { display: none !important; }
+        
+        #statusMessage {
+            margin-top: 15px; padding: 10px; border-radius: 4px; text-align: center; display: none;
+        }
+        .status-success { background-color: #d4edda; color: var(--success-color); border: 1px solid #c3e6cb;}
+        .status-error { background-color: #f8d7da; color: var(--error-color); border: 1px solid #f5c6cb;}
+
+        .settings-form-box { background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 20px; }
+        .form-group-settings { margin-bottom: 15px; }
+        .form-group-settings label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .dsp-list-container { max-height: 300px; overflow-y: auto; border-top: 1px solid #eee; }
+        .dsp-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 5px; border-bottom: 1px solid #eee; }
+        .dsp-info { flex-grow: 1; margin-right: 10px; overflow: hidden;}
+        .dsp-name-disp { font-weight: 600; }
+        .dsp-url-preview { font-size: 0.8em; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;}
+        .dsp-actions { display: flex; flex-shrink: 0; }
+
+    </style>
+</head>
+<body>
+
+<div class="container" id="mainApp">
+    <h2>🚨 DSP Route Reporter</h2>
+
+    <table class="report-table">
+        <tr>
+            <th>DSP:</th>
+            <td>
+                <select id="dspSelect">
+                    <option value="">-- Select a DSP --</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <th>Issue Type:</th>
+            <td>
+                <select id="issueType">
+                    <option value="Double Stage">Double Stage</option>
+                    <option value="Wrong Stage">Wrong Stage</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <th>Route Number:</th>
+            <td>
+                <input type="text" id="routeNumber" placeholder="e.g., CX123">
+            </td>
+        </tr>
+        <tr>
+            <th>Movement Details:</th>
+            <td>
+                <div class="multi-input-cell">
+                    <input type="text" id="movedFrom" placeholder="Moved From (Y)" style="flex: 1;">
+                    <span class="arrow-separator">➝</span>
+                    <input type="text" id="movedTo" placeholder="Moved To (Z)" style="flex: 1;">
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div>
+        <div class="preview-header-area">
+            <label for="messagePreview" style="font-weight: 600; margin:0;">Message Preview (Editable):</label>
+            <button id="resetPreviewBtn" class="btn btn-sm btn-reset hidden">Reset to Auto-Generate</button>
+        </div>
+        <textarea id="messagePreview" class="preview-box"></textarea>
+        <small style="color: #666; display: block; margin-top: 4px;">You can manually edit the text above before sending.</small>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button class="btn btn-primary" id="sendBtn">Send Report to Chime</button>
+        <button class="btn btn-secondary" id="goToSettingsBtn">⚙️ Manage DSP Links</button>
+    </div>
+
+    <div id="statusMessage"></div>
+</div>
+
+
+<div class="container hidden" id="settingsView">
+    <h2>⚙️ Manage DSP Webhooks</h2>
+    
+    <div class="settings-form-box">
+        <h3 id="settingsFormHeader">Add New DSP</h3>
+        <div class="form-group-settings">
+            <label for="dspNameInput">DSP Name:</label>
+            <input type="text" id="dspNameInput" placeholder="e.g., DXYZ Logistics">
+        </div>
+        <div class="form-group-settings">
+            <label for="dspUrlInput">Chime Webhook URL:</label>
+            <input type="text" id="dspUrlInput" placeholder="https://hooks.chime.aws/incomingwebhooks/...">
+        </div>
+        <div style="display: flex; gap: 10px;">
+             <button class="btn btn-primary" id="saveDspBtn">Add DSP</button>
+             <button class="btn btn-secondary hidden" id="cancelEditBtn" style="margin-top:0;">Cancel</button>
+        </div>
+       
+    </div>
+
+    <h3>Saved DSPs</h3>
+    <div id="dspListContainer" class="dsp-list-container">
+        </div>
+
+    <button class="btn btn-secondary" id="backToMainBtn" style="margin-top: 20px;">← Back to Report</button>
+</div>
+
+
+<script>
+    // --- State Management ---
+    let dspData = [];
+    let editingDspId = null;
+    let isManualPreviewEdit = false; // New flag indicating if user manually edited preview
+    const STORAGE_KEY = 'dspRouteReporterData_v3';
+
+    // Define DOM elements used frequently
+    const mainAppView = document.getElementById('mainApp');
+    const settingsView = document.getElementById('settingsView');
+    const dspSelect = document.getElementById('dspSelect');
+    const messagePreview = document.getElementById('messagePreview');
+    const resetPreviewBtn = document.getElementById('resetPreviewBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    // Settings form elements
+    const dspNameInput = document.getElementById('dspNameInput');
+    const dspUrlInput = document.getElementById('dspUrlInput');
+    const saveDspBtn = document.getElementById('saveDspBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const settingsFormHeader = document.getElementById('settingsFormHeader');
+
+    // --- Initialization ---
+    window.addEventListener('DOMContentLoaded', () => {
+        loadData();
+        // Migration check for older versions data
+        if(dspData.length === 0) {
+             const v2 = localStorage.getItem('dspRouteReporterData_v2');
+             const v1 = localStorage.getItem('dspRouteReporterData');
+             if(v2) { try { dspData = JSON.parse(v2); saveData(); } catch(e){} }
+             else if(v1) { try { dspData = JSON.parse(v1); saveData(); } catch(e){} }
+        }
+
+        populateDspSelect();
+        updatePreview(); // Initial auto-generate
+        setupEventListeners();
+    });
+
+    function setupEventListeners() {
+        // Navigation
+        document.getElementById('goToSettingsBtn').addEventListener('click', () => toggleView('settings'));
+        document.getElementById('backToMainBtn').addEventListener('click', () => toggleView('main'));
+
+        // Settings Actions
+        saveDspBtn.addEventListener('click', saveDspOrUpdate);
+        cancelEditBtn.addEventListener('click', resetSettingsForm);
+
+        // Report Actions
+        document.getElementById('sendBtn').addEventListener('click', sendToChime);
+        
+        // Live Preview inputs (Auto-update listeners)
+        ['dspSelect', 'issueType', 'routeNumber', 'movedFrom', 'movedTo'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
+        });
+
+        // Manual Preview Edit listener
+        messagePreview.addEventListener('input', () => {
+            if (!isManualPreviewEdit) {
+                isManualPreviewEdit = true;
+                resetPreviewBtn.classList.remove('hidden');
+                messagePreview.classList.add('manual-mode');
+            }
+        });
+
+        // Reset Preview button listener
+        resetPreviewBtn.addEventListener('click', () => {
+            isManualPreviewEdit = false;
+            resetPreviewBtn.classList.add('hidden');
+            messagePreview.classList.remove('manual-mode');
+            updatePreview(); // Force re-generation
+        });
+    }
+
+
+    // --- Data Handling (Local Storage) ---
+    function loadData() {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            try { dspData = JSON.parse(stored); } catch (e) { dspData = []; }
+        } else { dspData = []; }
+    }
+
+    function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dspData));
+        populateDspSelect();
+        renderSettingsList();
+    }
+
+
+    // --- View Switching ---
+    function toggleView(viewName) {
+        hideStatus();
+        if (viewName === 'settings') {
+            resetSettingsForm();
+            mainAppView.classList.add('hidden');
+            settingsView.classList.remove('hidden');
+            renderSettingsList();
+        } else {
+            settingsView.classList.add('hidden');
+            mainAppView.classList.remove('hidden');
+        }
+    }
+
+
+    // --- Settings Page Logic (Add/Edit/Delete) ---
+    function saveDspOrUpdate() {
+        const name = dspNameInput.value.trim();
+        const url = dspUrlInput.value.trim();
+
+        if (!name || !url) { alert("Please enter both DSP Name and Webhook URL."); return; }
+        if (!url.startsWith("https://")) { alert("Please enter a valid secure URL (starting with https://)."); return; }
+
+        if (editingDspId) {
+            const index = dspData.findIndex(d => d.id === editingDspId);
+            if (index !== -1) { dspData[index].name = name; dspData[index].url = url; }
+        } else {
+             dspData.push({ id: Date.now(), name: name, url: url });
+        }
+        saveData();
+        resetSettingsForm();
+    }
+
+    function startEdit(id) {
+        const dsp = dspData.find(d => d.id === id);
+        if (!dsp) return;
+        dspNameInput.value = dsp.name;
+        dspUrlInput.value = dsp.url;
+        editingDspId = id; 
+        saveDspBtn.textContent = 'Update DSP';
+        settingsFormHeader.textContent = 'Edit DSP Details';
+        cancelEditBtn.classList.remove('hidden');
+    }
+
+    function deleteDsp(id) {
+        if(confirm('Are you sure you want to delete this DSP link?')) {
+            if(editingDspId === id) resetSettingsForm(); 
+            dspData = dspData.filter(dsp => dsp.id !== id);
+            saveData();
+        }
+    }
+
+    function resetSettingsForm() {
+        dspNameInput.value = ''; dspUrlInput.value = ''; editingDspId = null;
+        saveDspBtn.textContent = 'Add DSP'; settingsFormHeader.textContent = 'Add New DSP';
+        cancelEditBtn.classList.add('hidden');
+    }
+
+    function renderSettingsList() {
+        const container = document.getElementById('dspListContainer');
+        container.innerHTML = '';
+        if (dspData.length === 0) { container.innerHTML = '<p style="padding: 10px; color: #666;">No DSPs saved yet.</p>'; return; }
+
+        dspData.forEach(dsp => {
+            const div = document.createElement('div');
+            div.className = 'dsp-list-item';
+            const maskedUrl = dsp.url.substring(0, 25) + '...';
+            div.innerHTML = `
+                <div class="dsp-info"><span class="dsp-name-disp">${dsp.name}</span><span class="dsp-url-preview">${maskedUrl}</span></div>
+                <div class="dsp-actions"><button class="btn btn-action btn-edit" onclick="startEdit(${dsp.id})">Edit</button><button class="btn btn-action btn-danger" onclick="deleteDsp(${dsp.id})">Delete</button></div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+
+    // --- Main Report Logic ---
+    function populateDspSelect() {
+        const currentSelection = dspSelect.value;
+        while (dspSelect.options.length > 1) { dspSelect.remove(1); }
+        dspData.forEach(dsp => {
+            const option = document.createElement('option');
+            option.value = dsp.id; option.textContent = dsp.name;
+            dspSelect.appendChild(option);
+        });
+        if (currentSelection && dspData.some(d => d.id == currentSelection)) { dspSelect.value = currentSelection; }
+    }
+
+    function generateMessageContent() {
+        const dspId = document.getElementById('dspSelect').value;
+        const issue = document.getElementById('issueType').value;
+        const route = document.getElementById('routeNumber').value.trim() || "[Missing Route #]";
+        const from = document.getElementById('movedFrom').value.trim() || "[Y]";
+        const to = document.getElementById('movedTo').value.trim() || "[Z]";
+        
+        const selectedDspName = dspSelect.options[dspSelect.selectedIndex].text;
+        const actualDspName = dspId ? selectedDspName : "[Select DSP]";
+
+        let message = `🚨 **Route Ops Report** 🚨\n\n`;
+        message += `**DSP:** ${actualDspName}\n`;
+        message += `**Issue:** ${issue}\n`;
+        message += `**Route:** ${route}\n`;
+        message += `**Details:** Route moved from *${from}* to *${to}*.`;
+
+        return message;
+    }
+
+    // Updates the preview box IFF the user hasn't manually edited it
+    function updatePreview() {
+        if (isManualPreviewEdit) return; // Stop auto-update if in manual mode
+        messagePreview.value = generateMessageContent();
+    }
+
+    function showStatus(message, isError = false) {
+        statusMessage.textContent = message;
+        statusMessage.className = isError ? 'status-error' : 'status-success';
+        statusMessage.style.display = 'block';
+        if (!isError) setTimeout(() => { statusMessage.style.display = 'none'; }, 3000);
+    }
+    
+    function hideStatus() { statusMessage.style.display = 'none'; }
+
+
+    // --- Sending to Chime ---
+    async function sendToChime() {
+        const sendBtn = document.getElementById('sendBtn');
+        const dspId = document.getElementById('dspSelect').value;
+
+        // Basic validation
+        if (!dspId) { showStatus("Please select a DSP first.", true); return; }
+
+        const selectedDsp = dspData.find(d => d.id == dspId);
+        if (!selectedDsp || !selectedDsp.url) { showStatus("Error finding DSP URL.", true); return; }
+
+        // Get whatever is currently in the preview box (auto or manual)
+        const finalMessage = messagePreview.value;
+
+        if (!finalMessage.trim()) { showStatus("Cannot send an empty message.", true); return; }
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = "Sending...";
+        hideStatus();
+
+        try {
+            const response = await fetch(selectedDsp.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // IMPORTANT: Send the current value of the preview box
+                body: JSON.stringify({ "Content": finalMessage })
+            });
+
+            if (response.ok) {
+                showStatus("✅ Report sent successfully!");
+                // Optional: reset manual mode on success?
+                // resetPreviewBtn.click(); 
+            } else { throw new Error(`${response.status}`); }
+        } catch (error) {
+            console.error(error);
+            showStatus("❌ Failed to send. Check network or Webhook URL.", true);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = "Send Report to Chime";
+        }
+    }
+</script>
+
+</body>
+</html>
